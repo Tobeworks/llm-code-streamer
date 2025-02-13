@@ -1,89 +1,151 @@
 import os
 import argparse
 from pathlib import Path
-from typing import List, Set
+from typing import List, Set, Optional, Tuple
 from datetime import datetime
+
+def generate_filename(source_dir: str, chunk_number: Optional[int] = None) -> str:
+    """
+    Generiert einen Dateinamen mit Projektnamen und Zeitstempel.
+    
+    Args:
+        source_dir: Pfad zum Quellverzeichnis
+        chunk_number: Optional, Nummer des Chunks
+    
+    Returns:
+        String: Generierter Dateiname
+    """
+    project_name = Path(source_dir).resolve().name
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    base_name = f"code_collection_{project_name}_{timestamp}"
+    if chunk_number is not None:
+        return f"{base_name}_chunk{chunk_number:03d}.txt"
+    return f"{base_name}.txt"
+
+def write_chunk(file_contents: List[Tuple[str, str]], chunk_size: int, base_filename: str, chunk_number: int) -> None:
+    """
+    Schreibt einen Chunk von Dateien in eine Ausgabedatei.
+    
+    Args:
+        file_contents: Liste von Tupeln (Pfad, Inhalt)
+        chunk_size: Maximale Größe des Chunks in Bytes
+        base_filename: Basis für den Ausgabedateinamen
+        chunk_number: Nummer des aktuellen Chunks
+    """
+    output_file = base_filename.replace('.txt', f'_chunk{chunk_number:03d}.txt')
+    current_size = 0
+    
+    with open(output_file, 'w', encoding='utf-8') as out:
+        # Header
+        header = f"# Chunk {chunk_number}\n"
+        header += f"# Zeitstempel: {datetime.now().isoformat()}\n\n"
+        out.write(header)
+        current_size = len(header.encode('utf-8'))
+        
+        for rel_path, content in file_contents:
+            file_header = f"\n{'#' * 80}\n# Datei: {rel_path}\n{'#' * 80}\n\n"
+            file_content = f"{content}\n"
+            
+            content_size = len(file_header.encode('utf-8')) + len(file_content.encode('utf-8'))
+            if current_size + content_size > chunk_size:
+                break
+                
+            out.write(file_header)
+            out.write(file_content)
+            current_size += content_size
+            
+        # Footer
+        footer = f"\n{'#' * 80}\n# Ende Chunk {chunk_number}\n"
+        out.write(footer)
 
 def collect_files(
     source_dir: str, 
     extensions: List[str], 
-    output_file: str,
+    output_file: str, 
     exclude_dirs: Set[str] = {
         'node_modules', '.git', 'dist', 'build', 
         'lib', 'libs', 'venv', '.venv', 'env',
         '.env', '__pycache__', 'egg-info',
         '.pytest_cache', '.mypy_cache', '.coverage',
         'htmlcov', '.tox', '.eggs'
-    }
+    },
+    chunk_size: Optional[int] = None
 ) -> None:
     """
-    Sammelt alle Dateien mit bestimmten Endungen und schreibt sie in eine Textdatei.
+    Sammelt alle Dateien mit bestimmten Endungen und schreibt sie in eine oder mehrere Textdateien.
     
     Args:
         source_dir: Quellverzeichnis zum Durchsuchen
         extensions: Liste der Dateiendungen (z.B. ['.astro', '.vue'])
         output_file: Pfad zur Ausgabedatei
         exclude_dirs: Set von Verzeichnissen, die übersprungen werden sollen
+        chunk_size: Optional, maximale Größe pro Chunk in Bytes
     """
     source_path = Path(source_dir).resolve()
+    collected_files = []
     
-    with open(output_file, 'w', encoding='utf-8') as out:
-        # Header mit Metadaten
-        out.write(f"# Gesammelte Dateien aus {source_path}\n")
-        out.write(f"# Datum: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-        out.write(f"# Gesuchte Endungen: {', '.join(extensions)}\n")
-        out.write(f"# Start-Zeitstempel: {datetime.now().isoformat()}\n\n")
+    # Sammle alle Dateien
+    for root, dirs, files in os.walk(source_path):
+        dirs[:] = [d for d in dirs if d not in exclude_dirs]
+        path = Path(root)
         
-        for root, dirs, files in os.walk(source_path):
-            # Überspringe ausgeschlossene Verzeichnisse
-            dirs[:] = [d for d in dirs if d not in exclude_dirs]
+        matching_files = [
+            f for f in files 
+            if any(f.endswith(ext) for ext in extensions)
+        ]
+        
+        for file in matching_files:
+            file_path = path / file
+            rel_path = file_path.relative_to(source_path)
             
-            path = Path(root)
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    collected_files.append((str(rel_path), content))
+            except Exception as e:
+                print(f"Fehler beim Lesen von {file_path}: {e}")
+    
+    if chunk_size:
+        chunk_number = 1
+        remaining_files = collected_files
+        
+        while remaining_files:
+            write_chunk(remaining_files, chunk_size, output_file, chunk_number)
             
-            # Filtere Dateien nach Endungen
-            matching_files = [
-                f for f in files 
-                if any(f.endswith(ext) for ext in extensions)
-            ]
+            # Berechne die Größe des geschriebenen Chunks
+            current_size = 0
+            files_in_chunk = 0
+            for rel_path, content in remaining_files:
+                file_content = f"\n{'#' * 80}\n# Datei: {rel_path}\n{'#' * 80}\n\n{content}\n"
+                content_size = len(file_content.encode('utf-8'))
+                if current_size + content_size > chunk_size:
+                    break
+                current_size += content_size
+                files_in_chunk += 1
             
-            for file in matching_files:
-                file_path = path / file
-                rel_path = file_path.relative_to(source_path)
-                
-                # Trennzeile und Dateipfad als Kommentar
-                out.write("\n" + "#" * 80 + "\n")
+            # Entferne die geschriebenen Dateien aus der Liste
+            remaining_files = remaining_files[files_in_chunk:]
+            chunk_number += 1
+            
+    else:
+        with open(output_file, 'w', encoding='utf-8') as out:
+            # Header mit Metadaten
+            out.write(f"# Gesammelte Dateien aus {source_path}\n")
+            out.write(f"# Datum: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            out.write(f"# Gesuchte Endungen: {', '.join(extensions)}\n")
+            out.write(f"# Start-Zeitstempel: {datetime.now().isoformat()}\n\n")
+            
+            for rel_path, content in collected_files:
+                out.write(f"\n{'#' * 80}\n")
                 out.write(f"# Datei: {rel_path}\n")
-                out.write("#" * 80 + "\n\n")
-                
-                # Dateiinhalt
-                try:
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        content = f.read()
-                        out.write(content)
-                        if not content.endswith('\n'):
-                            out.write('\n')
-                except Exception as e:
-                    out.write(f"# Fehler beim Lesen der Datei: {e}\n")
-        
-        # End-Zeitstempel
-        out.write("\n" + "#" * 80 + "\n")
-        out.write(f"# Ende-Zeitstempel: {datetime.now().isoformat()}\n")
-
-def generate_filename(source_dir: str) -> str:
-    """
-    Generiert einen Dateinamen mit Projektnamen und Zeitstempel.
-    
-    Args:
-        source_dir: Pfad zum Quellverzeichnis
-    
-    Returns:
-        String: Generierter Dateiname
-    """
-    # Extrahiere den Projektnamen (letzter Ordnername)
-    project_name = Path(source_dir).resolve().name
-    # Erstelle Zeitstempel (Format: YYYYMMDD_HHMMSS)
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    return f"code_collection_{project_name}_{timestamp}.txt"
+                out.write(f"{'#' * 80}\n\n")
+                out.write(content)
+                if not content.endswith('\n'):
+                    out.write('\n')
+            
+            # End-Zeitstempel
+            out.write(f"\n{'#' * 80}\n")
+            out.write(f"# Ende-Zeitstempel: {datetime.now().isoformat()}\n")
 
 def main():
     parser = argparse.ArgumentParser(
@@ -115,6 +177,11 @@ def main():
         ],
         help='Zu überspringende Verzeichnisse'
     )
+    parser.add_argument(
+        '-c', '--chunk-size',
+        type=int,
+        help='Maximale Größe pro Chunk in KB (z.B. 4096 für 4MB)'
+    )
     
     args = parser.parse_args()
     
@@ -122,10 +189,11 @@ def main():
     output_file = args.output if args.output else generate_filename(args.source_dir)
     
     collect_files(
-        args.source_dir,
-        args.extensions,
-        output_file,
-        set(args.exclude_dirs)
+        source_dir=args.source_dir,
+        extensions=args.extensions,
+        output_file=output_file,
+        exclude_dirs=set(args.exclude_dirs),
+        chunk_size=args.chunk_size * 1024 if args.chunk_size else None
     )
 
 if __name__ == "__main__":
