@@ -19,19 +19,20 @@ git clone [repository-url]
 cd code-collector
 ```
 
-## Einrichtung der virtuellen Umgebung
+## Einrichtung der virtuellen Umgebung (optional)
 
 ```bash
 # Erstellen der virtuellen Umgebung
 python -m venv .venv
 
 # Aktivieren der virtuellen Umgebung
+
 # Unter Windows:
 .venv\Scripts\activate
 # Unter Linux/MacOS:
 source .venv/bin/activate
 
-# Installation der Abhängigkeiten (falls in Zukunft welche hinzukommen)
+# Installation der Abhängigkeiten (falls in Zukunft welche hinzukommen), auch optional
 pip install -r requirements.txt
 ```
 
@@ -52,7 +53,7 @@ python code_collector.py /pfad/zum/projekt -e .astro .vue .jsx
 python code_collector.py /pfad/zum/projekt -e .py -c 4096
 
 # 2MB Chunks mit benutzerdefiniertem Namen
-python code_collector.py /pfad/zum/projekt -e .py -c 2048 -o projekt_basis
+python code_collector.py /pfad/zum/projekt -e .py -c 2048 -o projekt_basis.txt
 ```
 
 ### Benutzerdefinierte Ausschlüsse
