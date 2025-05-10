@@ -1,124 +1,108 @@
-# Code Collector
-
-Ein Python-Tool zum Sammeln von Codedateien in eine einzelne Textdatei oder mehrere Chunks, optimiert für die Verwendung mit Large Language Models (LLMs).
+# LLM Code Collector
+A Python tool for collecting code files into a single text file or multiple chunks, optimized for use with Large Language Models (LLMs).
 
 ## Features
-
-- Sammelt Dateien mit spezifizierten Endungen
-- Fügt relative Pfade als Kommentare hinzu
-- Schließt standardmäßig bestimmte Verzeichnisse aus (node_modules, .git, etc.)
-- Fügt Zeitstempel für Start und Ende der Sammlung hinzu
-- Unterstützt Aufteilung in Chunks mit definierter maximaler Größe
-- Automatische Generierung von Dateinamen mit Projektnamen und Zeitstempel
-- Fehlerbehandlung für nicht lesbare Dateien
+- Collects files with specified extensions
+- Adds relative paths as comments
+- Excludes certain directories by default (node_modules, .git, etc.)
+- Adds timestamps for start and end of collection
+- Supports splitting into chunks with defined maximum size
+- Automatic generation of filenames with project name and timestamp
+- Error handling for unreadable files
 
 ## Installation
-
 ```bash
 git clone [repository-url]
 cd code-collector
 ```
 
-## Einrichtung der virtuellen Umgebung (optional)
-
+## Setting up virtual environment (optional)
 ```bash
-# Erstellen der virtuellen Umgebung
+# Create virtual environment
 python -m venv .venv
-
-# Aktivieren der virtuellen Umgebung
-
-# Unter Windows:
+# Activate virtual environment
+# On Windows:
 .venv\Scripts\activate
-# Unter Linux/MacOS:
+# On Linux/MacOS:
 source .venv/bin/activate
-
-# Installation der Abhängigkeiten (falls in Zukunft welche hinzukommen), auch optional
+# Install dependencies (if any are added in the future), also optional
 pip install -r requirements.txt
 ```
 
-## Verwendung
-
-### Grundlegende Verwendung
+## Usage
+### Basic usage
 ```bash
-# Sammelt alle .py Dateien in eine einzelne Datei
-python code_collector.py /pfad/zum/projekt -e .py
-
-# Mehrere Dateiendungen
-python code_collector.py /pfad/zum/projekt -e .astro .vue .jsx
+# Collects all .py files into a single file
+python code_collector.py /path/to/project -e .py
+# Multiple file extensions
+python code_collector.py /path/to/project -e .astro .vue .jsx
 ```
 
-### Chunk-basierte Verwendung
+### Chunk-based usage
 ```bash
-# Teilt die Ausgabe in 4MB große Chunks auf (4096 KB)
-python code_collector.py /pfad/zum/projekt -e .py -c 4096
-
-# 2MB Chunks mit benutzerdefiniertem Namen
-python code_collector.py /pfad/zum/projekt -e .py -c 2048 -o projekt_basis.txt
+# Splits the output into 4MB chunks (4096 KB)
+python code_collector.py /path/to/project -e .py -c 4096
+# 2MB chunks with custom name
+python code_collector.py /path/to/project -e .py -c 2048 -o project_base.txt
 ```
 
-### Benutzerdefinierte Ausschlüsse
+### Custom exclusions
 ```bash
-# Zusätzliche Verzeichnisse ausschließen
-python code_collector.py /pfad/zum/projekt -e .py --exclude-dirs node_modules .git temp cache
+# Exclude additional directories
+python code_collector.py /path/to/project -e .py --exclude-dirs node_modules .git temp cache
 ```
 
-## Ausgabeformat
-
-### Einzeldatei
-Die Ausgabedatei enthält:
-- Metadaten (Datum, gesuchte Endungen)
-- Start-Zeitstempel
-- Für jede Datei:
-  - Trennzeile
-  - Relativer Pfad als Kommentar
-  - Dateiinhalt
-- End-Zeitstempel
+## Output format
+### Single file
+The output file contains:
+- Metadata (date, searched extensions)
+- Start timestamp
+- For each file:
+  - Separator line
+  - Relative path as comment
+  - File content
+- End timestamp
 
 ### Chunks
-Jeder Chunk enthält:
-- Chunk-Nummer und Zeitstempel
-- Dateien bis zur maximalen Chunk-Größe
-- Trennlinien zwischen Dateien
-- Relative Pfade als Kommentare
+Each chunk contains:
+- Chunk number and timestamp
+- Files up to the maximum chunk size
+- Separator lines between files
+- Relative paths as comments
 
-## Dateinamenformat
-
-### Einzeldatei
+## Filename format
+### Single file
 ```
-code_collection_[projektname]_[YYYYMMDD_HHMMSS].txt
+code_collection_[projectname]_[YYYYMMDD_HHMMSS].txt
 ```
 
 ### Chunks
 ```
-code_collection_[projektname]_[YYYYMMDD_HHMMSS]_chunk001.txt
-code_collection_[projektname]_[YYYYMMDD_HHMMSS]_chunk002.txt
+code_collection_[projectname]_[YYYYMMDD_HHMMSS]_chunk001.txt
+code_collection_[projectname]_[YYYYMMDD_HHMMSS]_chunk002.txt
 ...
 ```
 
-## Standardmäßig ausgeschlossene Verzeichnisse
-
-- Versionskontrolle: `.git`
-- Build-Verzeichnisse: `dist`, `build`
-- Abhängigkeiten: `node_modules`, `lib`, `libs`
-- Python-spezifisch:
-  - Virtuelle Umgebungen: `venv`, `.venv`, `env`, `.env`
+## Directories excluded by default
+- Version control: `.git`
+- Build directories: `dist`, `build`
+- Dependencies: `node_modules`, `lib`, `libs`
+- Python-specific:
+  - Virtual environments: `venv`, `.venv`, `env`, `.env`
   - Cache: `__pycache__`, `.pytest_cache`, `.mypy_cache`
   - Test & Coverage: `.coverage`, `htmlcov`, `.tox`
-  - Paket-Info: `egg-info`, `.eggs`
+  - Package info: `egg-info`, `.eggs`
 
-## Kommandozeilenargumente
+## Command line arguments
+- `source_dir`: Source directory to search
+- `-e, --extensions`: List of file extensions (e.g. .astro .vue)
+- `-o, --output`: Optional custom output filename
+- `-c, --chunk-size`: Maximum size per chunk in KB (e.g. 4096 for 4MB)
+- `--exclude-dirs`: Directories to skip
 
-- `source_dir`: Quellverzeichnis zum Durchsuchen
-- `-e, --extensions`: Liste der Dateiendungen (z.B. .astro .vue)
-- `-o, --output`: Optionaler benutzerdefinierter Ausgabedateiname
-- `-c, --chunk-size`: Maximale Größe pro Chunk in KB (z.B. 4096 für 4MB)
-- `--exclude-dirs`: Zu überspringende Verzeichnisse
+## Requirements
+- Python 3.6 or higher
+- Standard libraries (os, argparse, pathlib, datetime)
 
-## Anforderungen
-
-- Python 3.6 oder höher
-- Standardbibliotheken (os, argparse, pathlib, datetime)
-
-## Lizenz
-
+## License
 MIT
